@@ -105,3 +105,19 @@ test_that("renderOptPathPlot", {
   pl = renderOptPathPlot(op1, iter = 0, subset.vars = 1)
   pl = renderOptPathPlot(op1, iter = 0, subset.targets = 2:3)
 })
+
+test_that("plotOptPathImprovements", {
+  ps0 = makeParamSet(
+    makeNumericParam("x")
+  )
+  op0 = makeOptPathDF(par.set = ps0, y.names = c("y"), minimize = TRUE)
+  X = rnorm(14)
+  dob = c(rep(0, 5), 1:2)
+  for (i in 1:7) {
+    addOptPathEl(op0, x = list(
+      x = X[i * 2]),
+      y = X[ i * 2 - 1],
+      dob = dob[i])
+  }
+  plotOptPathImprovements(op0)
+})

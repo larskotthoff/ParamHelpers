@@ -86,3 +86,59 @@ plotOptPath = function(op, iters, pause = TRUE, xlim = list(), ylim = list(),
   
   return(invisible(NULL))
 }
+
+#' Plot an optimization path vs. the improvement in the performance measure.
+#'
+#' Plot the performance improvement each step in the optimization path achieves.
+#' If no improvement was achieved for a particular step, the previous
+#' performance will be assumed and a flat line plotted.
+#'
+#' @param op [\code{OptPath}]\cr
+#'   Optimization path.
+#' @param min.improvement \code{numeric(1)}\cr
+#'   Minimum relative improvement over the previous step required to show a text
+#'   label in the plot specifying the configuration change and improvement.
+#' @param ...
+#'   Additional parameters for \code{\link{ggplot2::annotate}}.
+#' @return The ggplot2 object.
+#' @export
+#'
+plotOptPathImprovements = function(opt.path, min.improvement = 0.01, ...) {
+  assertClass(opt.path, "OptPath")
+  assertNumeric(min.improvement, lower = 0L, upper = 1L)
+
+  optfun = if (opt.path$minimize) { min } else { max }
+  which.optfun = if (opt.path$minimize) { which.min } else { which.max }
+  len = getOptPathLength(opt.path)
+
+  df = data.frame(step = 1:len,
+    target = sapply(1:len, function(i) {
+      optfun(head(opt.path$env$path[[opt.path$y.names]], i))
+    }))
+  opt.path.pars = opt.path$env$path[,names(opt.path$par.set$pars),drop = FALSE]
+  p = ggplot(df, aes(x = step, y = target)) +
+    geom_step() +
+    xlab("Step") +
+    ylab(opt.path$y.names)
+  best = opt.path.pars[1,,drop = FALSE]
+  for(i in 2:len) {
+    cur = opt.path.pars[i,,drop = FALSE]
+    diff = df$target[i-1] - df$target[i]
+    diff.rel = abs(diff/df$target[i-1])
+    better = optfun(c(0, diff)) == 0
+    if (better) {
+      if (diff.rel > min.improvement) {
+        perc = signif(diff.rel * 100, 2)
+        ypos = df$target[i-1] - diff/2
+        old = best[sapply(best != cur, isTRUE)]
+        new = cur[sapply(best != cur, isTRUE)]
+        label = paste(names(old),
+          paste(paste(old, new, sep = " → "), " (", perc, "%)", sep = ""),
+          sep = " = ", collapse = "\n")
+        p = p + annotate("text", x = i, y = ypos, label = label, ...)
+      }
+      best = cur
+    }
+  }
+  return(p)
+}
